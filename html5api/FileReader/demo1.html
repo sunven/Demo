@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>FileReader读取文件</title>
+    <script>
+    //读取指定文本文件并将内容显示在下面的<pre>元素中
+    function readfile(f) {
+        var reader = new FileReader(); //创建一个FileReader对象
+        reader.readAsText(f); //读取该文件
+        reader.onload = function() { //定义一个事件处理程序
+            var text = reader.result; //这是文件内容
+            var out = document.getElementById("output"); //查询output元素
+            out.innerHTML = ""; //清除该元素内容
+            out.appendChild(document.createTextNode(text)); //显示文件内容
+        }
+        reader.onerror = function(e) { //如果发生了错误
+            console.log("Error", e); //将错误以日志形式输出
+        };
+    }
+
+    //如果这个幻数标识文件的类型，那么就将其异步地设置成Blob的属性
+    function typefile(file) {
+        var slice = file.slice(0, 4); //只读取文件起始部分
+        var reader = new FileReader(); //创建一个异步的FileReader对象
+        reader.readAsArrayBuffer(slice); //读取文件片段
+        reader.onload = function(e) {
+            var buffer = reader.result; //ArrayBuffer形式的结果
+            var view = new DataView(buffer); //访问结果中的字节内容
+            var magic = view.getUint32(0, false); //以高位优先字节顺序，读取4个字节
+            switch (magic) { //从中检测文件类型
+                case 0x89504E47:
+                    file.verified_type = "image/png";
+                    break;
+                case 0x47494638:
+                    file.verified_type = "image/gif";
+                    break;
+                case 0x25504446:
+                    file.verified_type = "application/pdf";
+                    break;
+                case 0x504b0304:
+                    file.verified_type = "application/zip";
+                    break;
+            }
+            alert(file.name + file.verified_type);
+        };
+    }
+    </script>
+    <script type="text/javascript">
+    /*
+     *这些函数在Google Chrome10.0开发版中都测试过了
+     *启动Chrome的时候需要开启这些选项：
+     *--unlimited-quota-for-files:启用文件系统访问
+     *--allow-file-access-from-files:允许通过file://URL进行测试
+     */
+    //这里使用的大部分异步函数都接受一个可选的错误回调参数
+    //这里的回调函数只是简单地将错误输出
+    function logerr(e) {
+        console.log(e);
+    } 
+
+    //requestFileSystem()方法创建了一个在沙箱环境中的本地文件系统，
+    //并且只有同源的应用才可以访问
+    //可以在该文件系统中进行文件读/写，但是只能限定在该沙箱中
+    //不能访问其他的文件系统
+    var filesystem; //假设在调用下面的函数之前，已经初始化完毕
+    requestFileSystem(PERSISTENT, //或者采用用于缓存文件的临时（TEMPORARY）文件系统
+        10 * 1024 * 1024, //10MB
+        function(fs) { //完成后，调用此方法
+            filesystem = fs; //将文件系统保存到一个全局变量中
+        },
+        logerr); //如果发生错误则调用此方法
+    //以文本形式读取指定文件的内容，并将它们传递给回调函数
+    function readTextFile(path, callback) { //根据指定的文件名，调用getFile()获取相应的FileEntry对象
+        filesystem.root.getFile(path, {}, function(entry) { //使用FileEntry调用此方法来获得文件
+                //现在调用FileEntry.file()方法获取File对象
+                entry.file(function(file) { //file就表示File对象
+                    var reader = new FileReader(); //创建一个FileReader对象
+                    reader.readAsText(file); //读取文件
+                    reader.onload = function() { //当读取成功时
+                        callback(reader.result); //将其内容传递给回调函数
+                    }
+                    reader.onerror = logerr; //记录调用readAsText()时发生的错误
+                }, logerr); //记录调用file()方法时发生的错误
+            },
+            logerr); //记录调用getFile()时发生的错误
+    }
+    //将指定的内容添加到指定路径的文件中，
+    //如果指定路径的文件不存在，则使用该文件名创建一个新的文件
+    //完成之后，调用回调函数
+    function appendToFile(path, contents, callback) { //filesystem.root指根目录
+        filesystem.root.getFile( //获取FileEntry对象
+            path, //想要获取的文件的名字和路径
+            {
+                create: true
+            }, //如果不存在则创建一个
+            function(entry) { //完成之后调用此函数
+                entry.createWriter( //为该文件创建一个FileWriter对象
+                    function(writer) { //创建完成之后调用此函数
+                        //默认情况下，从文件最开始开始写入
+                        //这里指定从文件最后开始写
+                        writer.seek(writer.length); //移动到文件最后
+                        //将文件内容转换成Blob
+                        //contents参数可以是字符串、Blob或者ArrayBuffer
+                        var bb = new BlobBuilder()
+                        bb.append(contents);
+                        var blob = bb.getBlob(); //现在将该Blob写入到文件中
+                        writer.write(blob);
+                        writer.onerror = logerr; //记录调用writer()方法时发生的错误
+                        if (callback) //如果有回调函数
+                            writer.onwrite = callback; //则成功的时候调用
+                    },
+                    logerr); //记录调用createWriter()方法时发生的错误
+            },
+            logerr); //记录调用getFile()方法时发生的错误
+    }
+    //删除指定的文件，完成后调用指定的回调函数
+    function deleteFile(name, callback) {
+        filesystem.root.getFile(name, {}, //根据指定的名字获取相应的FileEntry对象
+            function(entry) { //entry就是该FileEntry对象
+                entry.remove(callback, //删除FileEntry对象
+                    logerr); //或者记录调用remove()方法时发生
+                //的错误
+            },
+            logerr); //记录调用getFile()方法时发生的错误
+    }
+    //根据指定的名字创建一个新的目录
+    function makeDirectory(name, callback) {
+        filesystem.root.getDirectory(name, //要创建的目录的名字
+            { //选项
+                create: true, //如果不存在，则创建
+                exclusive: true //如果存在，则报错
+            },
+            callback, //完成后调用此方法
+            logerr); //记录错误
+    }
+    //读取指定目录的内容，并以字符串数组的形式将内容传递给指定的回调函数
+    function listFiles(path, callback) { //如果指定的内容不存在，则列出根目录
+        //否则，根据名字查找目录并将目录内容列出来（或者如果发生错误就记录错误）
+        if (!path) getFiles(filesystem.root);
+        else filesystem.root.getDirectory(path, {}, getFiles, logerr);
+
+        function getFiles(dir) { //此方法在之前也使用过
+            var reader = dir.createReader(); //一个DirectoryReader对象
+            var list = []; //用来存储文件名
+            reader.readEntries(handleEntries, //将每项都传递给下面的函数
+                logerr); //或者记录错误
+            //读取目录可以分成很多步
+            //必须一直调用readEntries()方法直到获取到空数组为止
+            //完成之后可以将整个列表传递给回调函数
+            function handleEntries(entries) {
+                if (entries.length == 0) callback(list); //完成
+                else { //否则，将这些项添加到列表中，并继续读取
+                    //此类数组对象包含FileEntry对象
+                    //这里需要挨个获取它们的名字
+                    for (var i = 0; i＜ entries.length; i++) {
+                        var name = entries[i].name; //获取名字
+                        if (entries[i].isDirectory) name += "/"; //标记目录
+                        list.push(name); //添加到列表中
+                    }
+                    //获取下一批项
+                    reader.readEntries(handleEntries, logerr);
+                }
+            }
+        }
+    }
+    </script>
+</head>
+
+<body>
+    Select the file to display:
+    <input type="file" onchange="readfile(this.files[0])"></input>
+    <br/>
+    <input type="file" onchange="typefile(this.files[0])"></input>
+    <pre id="output"></pre>
+</body>
+
+</html>
