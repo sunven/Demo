@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Document</title>
+    <script type="text/javascript">
+    window.onload = function() {
+        var worker = new Worker("ajaxworker.js"); //创建Worker线程
+        worker.postMessage(['demo1.html']); //复制和传递像素信息
+        //注册事件处理程序来获取Worker的响应
+        worker.onmessage = function(e) {
+            if (typeof e.data === "string") {
+                console.log("Worker:" + e.data);
+                return;
+            }
+            alert(e.data);
+        }
+    }
+    </script>
+</head>
+
+<body>
+</body>
+
+</html>
