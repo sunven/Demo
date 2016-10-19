@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <link id="bs-css" href="https://netdna.bootstrapcdn.com/bootstrap/3.0.3/css/bootstrap.min.css" rel="stylesheet">
+    <link id="bsdp-css" href="https://uxsolutions.github.io/bootstrap-datepicker/bootstrap-datepicker/css/bootstrap-datepicker3.min.css" rel="stylesheet">
+    <script src="http://cdn.bootcss.com/jquery/1.9.1/jquery.min.js"></script>
+    <script src="https://uxsolutions.github.io/bootstrap-datepicker/bootstrap-datepicker/js/bootstrap-datepicker.min.js"></script>
+    <script src="https://uxsolutions.github.io/bootstrap-datepicker/bootstrap-datepicker/js/locales/bootstrap-datepicker.zh-CN.min.js" charset="UTF-8"></script>
+</head>
+
+<body>
+    <div></div>
+    <script type="text/javascript">
+    var picker = $('div').datepicker({
+        language: "zh-CN",
+        multidate: 2,
+        minViewMode: 1,
+        format: "yyyy-mm-dd",
+        multidate: 2,
+        beforeShowDay: function(date) {
+
+            return true;
+        },
+    }).on("changeMonth", function(e) {
+        var arr = e.dates;
+        if (arr.length == 0) {
+        	//表示之前一个都没选
+        	console.log(e.date);
+        } else if (arr.length == 1) {
+        	//表示之前选了一个了
+        	console.log([e.dates[0],e.date]);
+        }else{
+        	//表示之前选了n个了  这里的n就是multidate  因为最多选两个
+			console.log([e.dates[1],e.date]);
+        }
+    });
+    </script>
+</body>
+
+</html>
